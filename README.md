@@ -34,6 +34,8 @@ library(lmerTest)
 library(MuMIn)
 library(HLMdiag)
 library(nlme)
+library(MASS)
+library(descr)
 ```
 Steps I need to take
 Figure out what variables I want
@@ -140,13 +142,6 @@ HCS = na.omit(HCS)
 dim(HCS)
 
 
-```
-Create the composite score
-Check assumptions of standardization and see if we need to take the log the normalize
-
-Make sure you understand the questions with this outcome later on.  May need to reverse score some variables
-```{r}
-
 ### AbstainAlcoholDrugs
 ### Not looking good for this variable, but if final variable is ok, then maybe not a big deal
 
@@ -154,7 +149,6 @@ hist(HCS$AbstainAlcoholDrugs)
 describe.factor(HCS$AbstainAlcoholDrugs)
 HCS$AbstainAlcoholDrugs_log = HCS$AbstainAlcoholDrugs+1
 hist(log(HCS$AbstainAlcoholDrugs_log))
-log(hist(HCS$AbstainAlcoholDrugs_log))
 describe.factor(HCS$AbstainAlcoholDrugs_log)
 hist(log(HCS$AbstainAlcoholDrugs_log))
 
@@ -208,9 +202,10 @@ HCS$KY = ifelse(HCS$StateID == 2, 1, 0)
 ## Now get rid of the extra missing data, which was created by the NA's for 24 month time point
 HCS = na.omit(HCS)
 dim(HCS)
-```
-Ok now load in the other variables and match them on the universal ID
-```{r}
+
+
+
+### Now get vitals
 #Combine the vitals first
 CIL_South_HCS_vitals_10052018$StateID = rep(1, dim(CIL_South_HCS_vitals_10052018)[1])
 CIL_west_HCS_vitals_10052018$StateID = rep(2, dim(CIL_west_HCS_vitals_10052018)[1])
@@ -238,9 +233,19 @@ CIL_CKY_vitals_complete = na.omit(CIL_CKY_vitals)
 dim(CIL_CKY_vitals_complete)
 describe.factor(CIL_CKY_vitals_complete$Timepoints_Vitals)
 names(CIL_CKY_vitals_complete) = tolower(names(CIL_CKY_vitals_complete))
-```
-Ok now get PHQ-9
-```{r}
+
+CIL_CKY_vitals_complete$bmi
+write.csv(CIL_CKY_vitals_complete, "CIL_CKY_vitals_complete.csv", row.names = FALSE)
+CIL_CKY_vitals_complete = read.csv("CIL_CKY_vitals_complete.csv", header = TRUE, na.strings = "NA")
+CIL_CKY_vitals_complete = na.omit(CIL_CKY_vitals_complete)
+range(CIL_CKY_vitals_complete$bmi)
+quantile(CIL_CKY_vitals_complete$bmi, c(.01,.10, .20, .30))
+
+#### Ok need to get rid of mistakes for BMI
+CIL_CKY_vitals_complete
+
+
+#### Now PHQ-9
 CIL_South_HCS_PHQ9_10102018$StateID = rep(1, dim(CIL_South_HCS_PHQ9_10102018)[1])
 CIL_West_HCS_PHQ9_10102018$StateID = rep(2, dim(CIL_West_HCS_PHQ9_10102018)[1])
 CIN_HCS_PHQ9_10102018$StateID = rep(3, dim(CIN_HCS_PHQ9_10102018)[1])
@@ -268,9 +273,8 @@ dim(CIL_CKY_PHQ9)
 CIL_CKY_PHQ9_complete = na.omit(CIL_CKY_PHQ9)
 dim(CIL_CKY_PHQ9_complete)
 names(CIL_CKY_PHQ9_complete) = tolower(names(CIL_CKY_PHQ9_complete))
-```
-Now tobacco
-```{r}
+
+
 CIL_South_HCS_Tobacco_10052018$StateID = rep(1, dim(CIL_South_HCS_Tobacco_10052018)[1])
 CIL_west_HCS_Tobacco_10052018$StateID = rep(2, dim(CIL_west_HCS_Tobacco_10052018)[1])
 CIN_HCS_Tobacco_10052018$StateID = rep(3, dim(CIN_HCS_Tobacco_10052018)[1])
@@ -302,7 +306,7 @@ write.csv(CIL_CKY_Tobacco, "CIL_CKY_Tobacco.csv", row.names = FALSE)
 CIL_CKY_Tobacco = read.csv("CIL_CKY_Tobacco.csv", header = TRUE, na.strings = "")
 dim(CIL_CKY_Tobacco)
 
-describe(CIL_CKY_Tobacco)
+#describe(CIL_CKY_Tobacco)
 
 ## Reduce the data
 CIL_CKY_Tobacco = data.frame(universal_id = CIL_CKY_Tobacco$universal_id, followuptimepoint = CIL_CKY_Tobacco$followuptimepoint, usestobacco_ind = CIL_CKY_Tobacco$usestobacco_ind, screenedfortobaccouse_ind = CIL_CKY_Tobacco$screenedfortobaccouse_ind, stateid = CIL_CKY_Tobacco$stateid)
@@ -318,31 +322,49 @@ CIL_CKY_Tobacco_complete = read.csv("CIL_CKY_Tobacco_complete.csv", header = TRU
 sum(is.na(CIL_CKY_Tobacco_complete$usestobacco_ind))
 CIL_CKY_Tobacco_complete = na.omit(CIL_CKY_Tobacco_complete)
 dim(CIL_CKY_Tobacco_complete)
-```
-Now see if you can merge the data without too much missing data
 
-Ok need to keep the data sets seperate, because the timing is different for each of them and we cannot use a single time point indicator
-```{r}
-CIL_CKY_vitals_complete
 
-Vitals_PHQ9 = merge(CIL_CKY_vitals_complete, CIL_CKY_PHQ9_complete, by = "universal_id", all = TRUE)
-sum(is.na(Vitals_PHQ9))
-head(Vitals_PHQ9)
 
-Vitals_Tobacco = merge(CIL_CKY_Tobacco, CIL_CKY_PHQ9_complete, by = "universal_id", all = TRUE)
-sum(is.na(Vitals_Tobacco))
-Vitals_Tobacco_test = merge(CIL_CKY_Tobacco, CIL_CKY_PHQ9_complete, by = "universal_id")
-dim(Vitals_Tobacco)
-dim(Vitals_Tobacco_test)
+### Recode the time points
+CIL_CKY_PHQ9_complete$followuptimepoint = ifelse(CIL_CKY_PHQ9_complete$followuptimepoint == "Intake", 1, ifelse(CIL_CKY_PHQ9_complete$followuptimepoint == "3 Month", 2, ifelse(CIL_CKY_PHQ9_complete$followuptimepoint== "6 Month", 3, ifelse(CIL_CKY_PHQ9_complete$followuptimepoint == "9 Month", 4, ifelse(CIL_CKY_PHQ9_complete$followuptimepoint == "12 Month", 5, ifelse(CIL_CKY_PHQ9_complete$followuptimepoint == "15 Month", 6, ifelse(CIL_CKY_PHQ9_complete$followuptimepoint == "18 Month", 7, ifelse(CIL_CKY_PHQ9_complete$followuptimepoint == "21 Month", 8, ifelse(CIL_CKY_PHQ9_complete$followuptimepoint == "24 Month", 9, CIL_CKY_PHQ9_complete$followuptimepoint)))))))))
 
-Vitals_Tobacco_PHQ9 = merge(Vitals_PHQ9, CIL_CKY_Tobacco, by = "universal_id")
-dim(Vitals_Tobacco_PHQ9)
 
-sum(is.na(Vitals_Tobacco_PHQ9))
-Vitals_Tobacco_PHQ9_complete = na.omit(Vitals_Tobacco_PHQ9)
-dim(Vitals_Tobacco_PHQ9_complete)
+CIL_CKY_Tobacco_complete$followuptimepoint = ifelse(CIL_CKY_Tobacco_complete$followuptimepoint == "Intake", 1, ifelse(CIL_CKY_Tobacco_complete$followuptimepoint == "3 Month", 2, ifelse(CIL_CKY_Tobacco_complete$followuptimepoint== "6 Month", 3, ifelse(CIL_CKY_Tobacco_complete$followuptimepoint == "9 Month", 4, ifelse(CIL_CKY_Tobacco_complete$followuptimepoint == "12 Month", 5, ifelse(CIL_CKY_Tobacco_complete$followuptimepoint == "15 Month", 6, ifelse(CIL_CKY_Tobacco_complete$followuptimepoint == "18 Month", 7, ifelse(CIL_CKY_Tobacco_complete$followuptimepoint == "21 Month", 8, ifelse(CIL_CKY_Tobacco_complete$followuptimepoint == "24 Month", 9, CIL_CKY_Tobacco_complete$followuptimepoint)))))))))
 
-head(Vitals_Tobacco_PHQ9_complete)
+### Try getting rid of 24 month not much data
+CIL_CKY_Tobacco_complete = subset(CIL_CKY_Tobacco_complete, followuptimepoint < 9)
+describe.factor(CIL_CKY_Tobacco_complete$followuptimepoint)
+
+
+head(CIL_CKY_vitals_complete)
+CIL_CKY_vitals_complete$timepoints_vitals = ifelse(CIL_CKY_vitals_complete$timepoints_vitals == "Intake", 1, ifelse(CIL_CKY_vitals_complete$timepoints_vitals == "3 Month", 2, ifelse(CIL_CKY_vitals_complete$timepoints_vitals== "6 Month", 3, ifelse(CIL_CKY_vitals_complete$timepoints_vitals == "9 Month", 4, ifelse(CIL_CKY_vitals_complete$timepoints_vitals == "12 Month", 5, ifelse(CIL_CKY_vitals_complete$timepoints_vitals == "15 Month", 6, ifelse(CIL_CKY_vitals_complete$timepoints_vitals == "18 Month", 7, ifelse(CIL_CKY_vitals_complete$timepoints_vitals == "21 Month", 8, ifelse(CIL_CKY_vitals_complete$timepoints_vitals == "24 Month", 9, CIL_CKY_vitals_complete$timepoints_vitals)))))))))
+
+compmeans(CIL_CKY_vitals_complete$bmi, CIL_CKY_vitals_complete$timepoints_vitals)
+
+### Dropped several people here for what seem like mistakes with very high and low BMIs
+CIL_CKY_vitals_complete = subset(CIL_CKY_vitals_complete,bmi < 100)
+CIL_CKY_vitals_complete = subset(CIL_CKY_vitals_complete,bmi > 10)
+range(CIL_CKY_vitals_complete$bmi)
+dim(CIL_CKY_vitals_completeTest)
+dim(CIL_CKY_vitals_complete)
+
+### Clean up demographics 
+### Gender female equals one
+CIL_CKY_vitals_complete$gender = ifelse(CIL_CKY_vitals_complete$gender == "FEMALE", 1, 0)
+head(CIL_CKY_vitals_complete$gender)
+
+### Too much missing data for race
+describe.factor(CIL_CKY_vitals_complete$race)
+
+
+### Scaling variables
+#Center continoius variables
+CIL_CKY_vitals_complete$ageatmodelenrollment  = scale(CIL_CKY_vitals_complete$ageatmodelenrollment, center = TRUE, scale = FALSE)
+
+CIL_CKY_vitals_complete$bp_systolic = scale(CIL_CKY_vitals_complete$bp_systolic, center = TRUE, scale = FALSE)
+
+CIL_CKY_vitals_complete$bmi = scale(CIL_CKY_vitals_complete$bmi, center = TRUE, scale = FALSE)
+
 ```
 ##### 
 Modeling 
@@ -371,11 +393,11 @@ model_null = lmer(BAHCS_10Total ~ + (FollowUpTimePoint | Universal_ID),  data = 
 
 
 ##Random intercepts model
-model_int = lmer(BAHCS_10Total ~ FollowUpTimePoint + Substance_composite + Ill_West + KY +  (1 | Universal_ID),  data = HCS)
+model_int = lmer(BAHCS_10Total ~ FollowUpTimePoint + Substance_composite + factor(StateID) +  (1 | Universal_ID),  data = HCS)
 
 
 ### Random intercepts and slopes model
-model_int_slope = lmer(BAHCS_10Total ~ FollowUpTimePoint + Substance_composite + Ill_West + KY +  (FollowUpTimePoint | Universal_ID),  data = HCS)
+model_int_slope = lmer(BAHCS_10Total ~ FollowUpTimePoint + Substance_composite +  factor(StateID) + (FollowUpTimePoint | Universal_ID),  data = HCS)
 
 
 
@@ -386,27 +408,41 @@ model_int_interact = lmer(BAHCS_10Total ~ FollowUpTimePoint*factor(StateID)  + S
 #Interaction model with state and random inter and slope
 model_int_interact_slope = lmer(BAHCS_10Total ~ FollowUpTimePoint*factor(StateID)  + Substance_composite +  (FollowUpTimePoint | Universal_ID),  data = HCS)
 
+### Autocorrelation with random intercepts
+
+model_int_auto = lme(BAHCS_10Total ~ FollowUpTimePoint+ factor(StateID)  + Substance_composite , random =~ 1 | Universal_ID, correlation = corAR1(),  data = HCS)
+summary(model_int_auto)
+
+### Autocorrelation with random intercepts and slopes
+model_int_slope_auto = lme(BAHCS_10Total ~ FollowUpTimePoint+ factor(StateID)  + Substance_composite , random =~ FollowUpTimePoint| Universal_ID, correlation = corAR1(),  data = HCS)
+summary(model_int_slope_auto)
+
 
 #### Compare all models
 anova(model_null,model_int, model_int_slope, model_int_interact, model_int_interact_slope)
+
+
+anova(model_int_auto,model_int_slope_auto)
+
+
 ```
 ###############
 HCS Final model
 ###############
 ```{r}
-model_int_interact_slope = lmer(BAHCS_10Total ~ FollowUpTimePoint*factor(StateID)  + Substance_composite +  (FollowUpTimePoint | Universal_ID),  data = HCS)
-model_int_interact_slope_summary = summary(model_int_interact_slope)
-model_int_interact_slope_summary
+model_int_slope = lmer(BAHCS_10Total ~ FollowUpTimePoint + factor(StateID)  + Substance_composite +  (FollowUpTimePoint | Universal_ID),  data = HCS)
+model_int_slope_summary = summary(model_int_slope)
+model_int_slope_summary
 
 ##evaluate standardized coefficents
 ## Want partial, because there is a relationship between the variables
-partial.sd(model_int_random)
+partial.sd(model_int_slope)
 
 ### Confidence intervals
-confint(model_int_random, method = "Wald")
+confint(model_int_slope, method = "Wald")
 
 ### Total change in program for entire time (8 time points)
-model_int_interact_slope_summary$coefficients[2,1]*8
+model_int_slope_summary$coefficients[2,1]*8
 
 ```
 ######
@@ -414,19 +450,16 @@ HCS Model diagnositcs
 ########
 ```{r}
 ### R^2 really good
-r.squaredGLMM(model_int_interact_slope)
-hist(model_int_interact_slope_summary$residuals)
-qqnorm(model_int_interact_slope_summary$residuals)
+r.squaredGLMM(model_int_slope)
+hist(model_int_slope_summary$residuals)
+qqnorm(model_int_slope_summary$residuals)
 ```
 PHQ-9 descriptives need to change the timepoints to numbers
 ```{r}
 describe.factor(CIL_CKY_PHQ9_complete$followuptimepoint)
-CIL_CKY_PHQ9_complete$followuptimepoint = ifelse(CIL_CKY_PHQ9_complete$followuptimepoint == "Intake", 1, ifelse(CIL_CKY_PHQ9_complete$followuptimepoint == "3 Month", 2, ifelse(CIL_CKY_PHQ9_complete$followuptimepoint== "6 Month", 3, ifelse(CIL_CKY_PHQ9_complete$followuptimepoint == "9 Month", 4, ifelse(CIL_CKY_PHQ9_complete$followuptimepoint == "12 Month", 5, ifelse(CIL_CKY_PHQ9_complete$followuptimepoint == "15 Month", 6, ifelse(CIL_CKY_PHQ9_complete$followuptimepoint == "18 Month", 7, ifelse(CIL_CKY_PHQ9_complete$followuptimepoint == "21 Month", 8, ifelse(CIL_CKY_PHQ9_complete$followuptimepoint == "24 Month", 9, CIL_CKY_PHQ9_complete$followuptimepoint)))))))))
-
 describe(CIL_CKY_PHQ9_complete)
 compmeans(CIL_CKY_PHQ9_complete$total_phq9, CIL_CKY_PHQ9_complete$followuptimepoint)
 CIL_CKY_PHQ9_complete$total_phq9 = as.numeric(CIL_CKY_PHQ9_complete$total_phq9)
-
 ```
 ###########
 PHQ9 Model
@@ -449,8 +482,19 @@ model_int_interact = lmer(total_phq9 ~ followuptimepoint*factor(stateid) +  ( 1|
 #Interaction model with state and random inter and slope
 model_int_interact_slope = lmer(total_phq9 ~ followuptimepoint*factor(stateid) +  ( followuptimepoint| universal_id),  data = CIL_CKY_PHQ9_complete)
 
+## auto correlation model with random intercepts
+model_int_auto = lme(total_phq9 ~ followuptimepoint+ factor(stateid), random=~ 1| universal_id, corAR1(),  data = CIL_CKY_PHQ9_complete)
+summary(model_int_auto)
+
+## auto correlation model with random intercepts and slopes
+model_int_slopes_auto = lme(total_phq9 ~ followuptimepoint+ factor(stateid), random=~ followuptimepoint| universal_id, corAR1(),  data = CIL_CKY_PHQ9_complete)
+summary(model_int_slopes_auto)
+
 #### Compare all models
 anova(model_null,model_int, model_int_slope, model_int_interact, model_int_interact_slope)
+
+# Compare the autocorrelation models
+anova(model_int_auto, model_int_slopes_auto)
 ```
 ################
 PHQ9 Final Model
@@ -458,19 +502,18 @@ PHQ9 Final Model
 
 Figure out what to say about this later
 ```{r}
-model_int_summary = summary(model_int)
-model_int_summary
-summary(model_int_interact)
+model_int_slope = lmer(total_phq9 ~ followuptimepoint + factor(stateid) +  ( followuptimepoint| universal_id),  data = CIL_CKY_PHQ9_complete)
+model_int_slope_summary = summary(model_int_slope)
+summary(model_int_slope_summary)
 ```
 PHQ9 Model diagnostics
 ```{r}
-
 ### Ok
-r.squaredGLMM(model_int)
+r.squaredGLMM(model_int_slope)
 
 ####
-hist(model_int_summary$residuals)
-qqnorm(model_int_summary$residuals)
+hist(model_int_slope_summary$residuals)
+qqnorm(model_int_slope_summary$residuals)
 ```
 ####################
 Tobacco descriptives
@@ -478,18 +521,12 @@ Tobacco descriptives
 
 This variable is worthless it is always one screenedfortobaccouse_ind
 ```{r}
-CIL_CKY_Tobacco_complete$followuptimepoint = ifelse(CIL_CKY_Tobacco_complete$followuptimepoint == "Intake", 1, ifelse(CIL_CKY_Tobacco_complete$followuptimepoint == "3 Month", 2, ifelse(CIL_CKY_Tobacco_complete$followuptimepoint== "6 Month", 3, ifelse(CIL_CKY_Tobacco_complete$followuptimepoint == "9 Month", 4, ifelse(CIL_CKY_Tobacco_complete$followuptimepoint == "12 Month", 5, ifelse(CIL_CKY_Tobacco_complete$followuptimepoint == "15 Month", 6, ifelse(CIL_CKY_Tobacco_complete$followuptimepoint == "18 Month", 7, ifelse(CIL_CKY_Tobacco_complete$followuptimepoint == "21 Month", 8, ifelse(CIL_CKY_Tobacco_complete$followuptimepoint == "24 Month", 9, CIL_CKY_Tobacco_complete$followuptimepoint)))))))))
-
 describe(CIL_CKY_Tobacco_complete)
 
 describe.factor(CIL_CKY_Tobacco_complete$usestobacco_ind)
 
 compmeans(CIL_CKY_Tobacco_complete$usestobacco_ind, CIL_CKY_Tobacco_complete$followuptimepoint)
 
-
-### Try getting rid of 24 month not much data
-CIL_CKY_Tobacco_complete = subset(CIL_CKY_Tobacco_complete, followuptimepoint < 9)
-describe.factor(CIL_CKY_Tobacco_complete$followuptimepoint)
 
 ```
 ###################
@@ -513,10 +550,21 @@ model_int_interact = glmer(usestobacco_ind ~ + followuptimepoint*factor(stateid)
 summary(model_int_interact)
 
 ### Single level model
-model_single= glm(usestobacco_ind ~  + followuptimepoint ,  data = CIL_CKY_Tobacco_complete, family = "binomial")
+model_single= gls(usestobacco_ind ~  + followuptimepoint ,correlation = corAR1(form=~1),  data = CIL_CKY_Tobacco_complete, family = "binomial")
 summary(model_single)
 
-model
+## Single with autocorrelation
+model_single_auto = gls(usestobacco_ind ~  + followuptimepoint ,correlation = corAR1(form=~1),  data = CIL_CKY_Tobacco_complete)
+summary(model_single_auto)
+model_single_auto
+
+### Try this PQL model, which can account for autocorrelation and is mixed with binary outcomes.  I don't know if this is right
+
+pql = glmmPQL(usestobacco_ind ~ + followuptimepoint, ~ 1 | followuptimepoint/universal_id, family = "binomial", correlation = corAR1(form=~1), data = CIL_CKY_Tobacco_complete)
+summary(pql)
+pql$family
+
+exp(-0.4291991)
 
 ```
 #######
@@ -525,8 +573,87 @@ Tobacco diagnositcs
 ```{r}
 model_int_summary = summary(model_int)
 r.squaredGLMM(model_int)
-anova(model_null, model_int)
+anova(model_null, model_int, pql)
+
+model_pql  = summary(pql)
+
+
+```
+###################
+Vitals Descriptives
+###################
+```{r}
+describe(CIL_CKY_vitals_complete)
+compmeans(CIL_CKY_vitals_complete$bmi, CIL_CKY_vitals_complete$timepoints_vitals)
+```
+###############
+Vitals Models
+###############
+```{r}
+dim(CIL_CKY_vitals_complete)
+sum(is.na(CIL_CKY_vitals_complete))
+### Still NAs
+
+### Null
+model_null = lmer(bmi ~  + (1 | universal_id),  data = CIL_CKY_vitals_complete)
+
+
+model_int = lmer(bmi ~ timepoints_vitals +gender  + ageatmodelenrollment + bp_systolic + (1 | universal_id), data = CIL_CKY_vitals_complete)
+summary(model_int)
+
+model_int_slope = lmer(bmi ~ timepoints_vitals +gender  + ageatmodelenrollment + bp_systolic+ (timepoints_vitals | universal_id), data = CIL_CKY_vitals_complete)
+summary(model_int_slope)
+
+model_int_slope_age = lmer(bmi ~ timepoints_vitals*ageatmodelenrollment + gender + bp_systolic+ (timepoints_vitals | universal_id), data = CIL_CKY_vitals_complete)
+summary(model_int_slope_age)
+
+model_int_slope_gender = lmer(bmi ~ timepoints_vitals*gender + ageatmodelenrollment + bp_systolic+ (timepoints_vitals | universal_id), data = CIL_CKY_vitals_complete)
+summary(model_int_slope_gender)
+
+model_int_slope_bp_systolic = lmer(bmi ~ timepoints_vitals*bp_systolic + gender + ageatmodelenrollment + bp_systolic+ (timepoints_vitals | universal_id), data = CIL_CKY_vitals_complete)
+summary(model_int_slope_bp_systolic)
+
+```
+#####################
+Vitals model compare
+####################
+```{r}
+anova(model_null,model_int, model_int_slope)
+model_int_slope_summary = summary(model_int_slope)
+hist(model_int_slope_summary$residuals)
+qqnorm(model_int_slope_summary$residuals)
+r.squaredGLMM(model_int_slope)
+
 ```
 
+
+#########
+Extra
+#########
+Now see if you can merge the data without too much missing data
+
+Ok need to keep the data sets seperate, because the timing is different for each of them and we cannot use a single time point indicator
+```{r}
+
+
+Vitals_PHQ9 = merge(CIL_CKY_vitals_complete, CIL_CKY_PHQ9_complete, by = "universal_id", all = TRUE)
+sum(is.na(Vitals_PHQ9))
+head(Vitals_PHQ9)
+
+Vitals_Tobacco = merge(CIL_CKY_Tobacco, CIL_CKY_PHQ9_complete, by = "universal_id", all = TRUE)
+sum(is.na(Vitals_Tobacco))
+Vitals_Tobacco_test = merge(CIL_CKY_Tobacco, CIL_CKY_PHQ9_complete, by = "universal_id")
+dim(Vitals_Tobacco)
+dim(Vitals_Tobacco_test)
+
+Vitals_Tobacco_PHQ9 = merge(Vitals_PHQ9, CIL_CKY_Tobacco, by = "universal_id")
+dim(Vitals_Tobacco_PHQ9)
+
+sum(is.na(Vitals_Tobacco_PHQ9))
+Vitals_Tobacco_PHQ9_complete = na.omit(Vitals_Tobacco_PHQ9)
+dim(Vitals_Tobacco_PHQ9_complete)
+
+head(Vitals_Tobacco_PHQ9_complete)
+```
 
 
